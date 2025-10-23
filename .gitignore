@@ -1,0 +1,5 @@
+.DS_Store
+build/
+build/web-cache/
+__pycache__/
+*.pyc
