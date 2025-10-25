@@ -5,80 +5,25 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>FlappyAkh</title>
   <style>
-    html, body { margin:0; height:100%; background:#141414; }
-    #wrap { display:flex; align-items:center; justify-content:center; height:100%; }
-    canvas { display:block; max-width:100vw; max-height:100vh; }
-    #log { position:fixed; left:8px; bottom:8px; color:#bbb; font:12px/1.2 monospace; }
-
-    /* Click-to-start Overlay */
-    #clickstart{
-      position:fixed; inset:0; display:grid; place-items:center;
-      background:rgba(0,0,0,.65); color:#fff;
-      font:600 18px/1.4 system-ui, Arial, sans-serif; letter-spacing:.3px;
-      z-index:9999; text-align:center; user-select:none; cursor:pointer
-    }
-    #clickstart small{opacity:.85; font-weight:400}
+    html,body{margin:0;height:100%;background:#141414}
+    #wrap{display:flex;align-items:center;justify-content:center;height:100%}
+    canvas{display:block;max-width:100vw;max-height:100vh}
   </style>
 </head>
 <body>
   <div id="wrap"><canvas id="canvas"></canvas></div>
-  <div id="log"></div>
-  <div id="clickstart"><div>
-    Click / Tap to start<br><small>(dann SPACE drücken zum Flappen)</small>
-  </div></div>
 
-  <!-- Pygame Web runtime vom CDN -->
-  <script src="https://pygame-web.github.io/archives/0.9/pygame.js"></script>
-  <script>
-    const log = (...a) => { const el = document.getElementById('log'); el.textContent = a.join(' '); console.log(...a); };
-    const APK = "flappyakh.apk"; // liegt in docs/
-
-    let ModuleRef = null;
-
-    // App laden, aber NICHT automatisch starten
-    load_pygame({
-      canvas: document.getElementById("canvas"),
-      app: APK,
-      lock_pointer: false,
-      warn_eval: false,
-      noMeta: true,
-      autorun: false,               // <— wichtig: wir starten manuell nach User-Geste
-      locateFile: (path) => path
-    }).then((Module) => {
-      ModuleRef = Module;
-      log("Ready. Click to start");
-    }).catch(err => {
-      log("Error:", err);
-      console.error(err);
-    });
-
-    // Start bei erstem Klick/Key
-    const startOnce = () => {
-      try {
-        // Fokus & Audio-Unlock
-        window.focus();
-        document.getElementById("canvas")?.focus();
-
-        // App starten (pygame main loop)
-        if (ModuleRef && typeof ModuleRef.run === "function") {
-          ModuleRef.run();
-        } else if (ModuleRef && typeof ModuleRef.pygame_run === "function") {
-          ModuleRef.pygame_run();
-        } else {
-          console.warn("No run() in Module; trying resumeMainLoop");
-          ModuleRef?.resumeMainLoop && ModuleRef.resumeMainLoop();
-        }
-      } catch(e) {
-        console.error(e);
-      } finally {
-        const overlay = document.getElementById("clickstart");
-        overlay && overlay.remove();
-      }
-    };
-
-    // Einmalig auslösen
-    window.addEventListener("pointerdown", startOnce, { once:true });
-    window.addEventListener("keydown", startOnce, { once:true });
+  <!-- Offizieller pygbag/pygame-web Loader -->
+  <script
+    id="site"
+    src="https://pygame-web.github.io/archives/0.9/pythons.js"
+    data-os="vtx,fs,snd,gui"
+    data-python="python3.12"
+    data-archive="flappyakh"   <!-- lädt docs/flappyakh.apk -->
+    data-xtermjs="0"
+    data-console="0"
+    data-gui_debug="0"
+    data-autorun="1">
   </script>
 </body>
 </html>
