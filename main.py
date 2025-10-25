@@ -8,6 +8,14 @@ import random
 import pygame
 import math
 
+IS_WEB = (sys.platform == "emscripten")
+
+def dbg(*a):
+    try:
+        print(*a)
+    except Exception:
+        pass
+        
 # --- Grundeinstellungen ---
 WIDTH, HEIGHT = 432, 768
 FPS = 60
@@ -61,9 +69,22 @@ def weighted_choice(items, weight_key="weight"):
 
 # --- Hilfsfunktionen ---
 def load_image_local(filename: str) -> pygame.Surface:
-    path = os.path.join(os.path.dirname(__file__), filename)
-    surf = pygame.image.load(path).convert_alpha()
-    return surf
+    """Lädt ein Bild (APK/web-tauglich). Versucht Pfad + Fallback nur-Dateiname.
+    Wirft bei Fehlern eine RuntimeError, die später hübsch angezeigt wird.
+    """
+    try_paths = [
+        os.path.join(os.path.dirname(__file__), filename),
+        filename,
+    ]
+    last_err = None
+    for p in try_paths:
+        try:
+            surf = pygame.image.load(p).convert_alpha()
+            dbg("loaded:", p)
+            return surf
+        except Exception as e:
+            last_err = e
+    raise RuntimeError(f"Bild konnte nicht geladen werden: {filename} ({last_err})")
 
 def make_face_circle_from_file(filename: str, size: int = 72) -> pygame.Surface:
     """Lädt ein Bild, skaliert es auf size x size und cropt es kreisförmig mit dünnem Rand."""
@@ -479,18 +500,44 @@ def main():
     pygame.init()
     pygame.display.set_caption(TITLE)
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    screen.fill((0, 0, 0)); pygame.display.flip()
     clock = pygame.time.Clock()
     font_big = pygame.font.SysFont("arial", 48, bold=True)
     font = pygame.font.SysFont("arial", 24, bold=True)
 
     # --- Charakter-Auswahl ---
-    # Prüfe, ob alle Bilder existieren
+    # --- Charakter-Bilder prüfen (nicht hart beenden im Web) ---
+try:
     missing = []
     for c in CHARACTERS:
         for k in ("skin", "avatar"):
             p = os.path.join(os.path.dirname(__file__), c[k])
             if not os.path.exists(p):
-                missing.append(p)
+                # Im Web/APK gibt es oft keinen OS-Pfad -> mit load_image_local prüfen
+                try:
+                    _ = load_image_local(c[k])
+                except Exception:
+                    missing.append(c[k])
+    if missing:
+        raise RuntimeError("Fehlende Bilddateien: " + ", ".join(missing))
+except Exception as e:
+    screen.fill((20, 20, 20))
+    f1 = pygame.font.Font(None, 36)
+    f2 = pygame.font.Font(None, 22)
+    msg1 = f1.render("Asset-Fehler", True, (255, 80, 80))
+    msg2 = f2.render(str(e), True, (230, 230, 230))
+    msg3 = f2.render("Tip: Alle Bilder ins Projekt-Root legen.", True, (200, 200, 200))
+    screen.blit(msg1, msg1.get_rect(center=(WIDTH//2, HEIGHT//2 - 20)))
+    screen.blit(msg2, msg2.get_rect(center=(WIDTH//2, HEIGHT//2 + 10)))
+    screen.blit(msg3, msg3.get_rect(center=(WIDTH//2, HEIGHT//2 + 36)))
+    pygame.display.flip()
+    # Warten bis Taste/Maus, damit man es lesen kann
+    waiting = True
+    while waiting:
+        for ev in pygame.event.get():
+            if ev.type in (pygame.QUIT, pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN):
+                waiting = False
+    return
     # Collectibles prüfen
     for spec in COLLECTIBLES:
         p = os.path.join(os.path.dirname(__file__), spec["file"])
@@ -683,4 +730,34 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except SystemExit:
+        raise
+    except Exception as e:
+        # Zeige Fehler statt schwarzem Bildschirm
+        try:
+            pygame.display.set_caption(TITLE + " – ERROR")
+            try:
+                pygame.display.set_mode((WIDTH, HEIGHT))
+            except Exception:
+                pass
+            surf = pygame.display.get_surface()
+            if surf:
+                surf.fill((15, 15, 18))
+                f1 = pygame.font.Font(None, 32)
+                f2 = pygame.font.Font(None, 20)
+                lines = ["FEHLER im Spiel:", str(e), "Siehe Browser-Konsole (F12 > Console)"]
+                y = 40
+                for line in lines:
+                    txt = f1.render(line, True, (255, 200, 200)) if y == 40 else f2.render(line, True, (230,230,230))
+                    surf.blit(txt, (24, y)); y += 28
+                pygame.display.flip()
+                waiting = True
+                while waiting:
+                    for ev in pygame.event.get():
+                        if ev.type in (pygame.QUIT, pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN):
+                            waiting = False
+        except Exception:
+            pass
+        raise
