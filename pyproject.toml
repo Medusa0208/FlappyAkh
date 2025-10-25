@@ -1,5 +1,0 @@
-[project]
-name = "FlappyAkh"
-
-[tool.pygbag]
-entrypoint = "FlappyAkh.py"
